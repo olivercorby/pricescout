@@ -300,7 +300,7 @@ function renderResults(results) {
 
     card.querySelector('.flag-btn').addEventListener('click', (e) => {
       e.stopPropagation();
-      flagReport(r.id);
+      flagReport(r.id, card);
     });
 
     list.appendChild(card);
@@ -309,10 +309,23 @@ function renderResults(results) {
 
 // ── FLAG REPORT ────────────────────────────────────────────
 
-async function flagReport(id) {
+async function flagReport(id, cardEl) {
   try {
-    await fetch(`/.netlify/functions/flag-report?id=${id}`, { method: 'POST' });
-    showToast('Flagged as outdated — thanks');
+    const res = await fetch(`/.netlify/functions/flag-report?id=${id}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.hidden) {
+      // 3 flags hit — remove card from UI immediately
+      cardEl.style.transition = 'opacity 0.3s, transform 0.3s';
+      cardEl.style.opacity = '0';
+      cardEl.style.transform = 'translateX(10px)';
+      setTimeout(() => cardEl.remove(), 300);
+      showToast('Price removed — thanks for keeping it accurate');
+    } else {
+      showToast(`Flagged as outdated (${data.flags}/3)`);
+      // Visually dim the flag button so user knows it registered
+      const btn = cardEl.querySelector('.flag-btn');
+      if (btn) btn.style.color = 'var(--text-primary)';
+    }
   } catch (e) {
     showToast('Could not flag report');
   }
@@ -377,6 +390,10 @@ async function submitReport() {
       body: JSON.stringify(body)
     });
 
+    if (res.status === 429) {
+      showToast('You already reported this store today');
+      return;
+    }
     if (!res.ok) throw new Error('Submit failed');
 
     showToast('Price reported — thank you!');

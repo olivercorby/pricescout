@@ -16,15 +16,22 @@ exports.handler = async function(event) {
 
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Supabase not configured' }) };
   }
 
   try {
-    // Fetch reports for this barcode, most recent first
-    // Filter by radius client-side since Supabase free tier doesn't have PostGIS
-    const url = `${SUPABASE_URL}/rest/v1/price_reports?barcode=eq.${encodeURIComponent(barcode)}&order=created_at.desc&limit=100`;
+    // Only fetch reports newer than 6 months and with fewer than 3 flags
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const cutoff = sixMonthsAgo.toISOString();
+
+    const url = `${SUPABASE_URL}/rest/v1/price_reports`
+      + `?barcode=eq.${encodeURIComponent(barcode)}`
+      + `&created_at=gte.${cutoff}`
+      + `&flags=lt.3`
+      + `&order=created_at.desc`
+      + `&limit=200`;
 
     const res = await fetch(url, {
       headers: {
@@ -40,13 +47,12 @@ exports.handler = async function(event) {
     // Filter by radius if location available
     if (lat && lng && results.length > 0) {
       results = results.filter(r => {
-        if (!r.lat || !r.lng) return true; // include if no location
-        const dist = haversineKm(lat, lng, r.lat, r.lng);
-        return dist <= radiusKm;
+        if (!r.lat || !r.lng) return true;
+        return haversineKm(lat, lng, r.lat, r.lng) <= radiusKm;
       });
     }
 
-    // Deduplicate: keep most recent report per store
+    // Deduplicate: keep most recent report per store+city combo
     const seen = {};
     const deduped = [];
     for (const r of results) {
@@ -57,8 +63,11 @@ exports.handler = async function(event) {
       }
     }
 
-    // Sort by price
-    deduped.sort((a, b) => a.price - b.price);
+    // Sort by price, then by recency as tiebreaker
+    deduped.sort((a, b) => {
+      if (a.price !== b.price) return a.price - b.price;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
 
     return { statusCode: 200, headers, body: JSON.stringify({ results: deduped }) };
 
