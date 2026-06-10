@@ -165,7 +165,10 @@
       <div class="form-section">
         <div class="form-group">
           <label class="form-label">Store name</label>
-          <input type="text" id="reportStore" placeholder="e.g. Canadian Tire, Walmart, Costco" autocomplete="off" />
+          <div class="autocomplete-wrap">
+            <input type="text" id="reportStore" placeholder="e.g. Canadian Tire, Walmart, Costco" autocomplete="off" />
+            <div class="autocomplete-list" id="storeList" style="display:none"></div>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Price you paid</label>
@@ -176,8 +179,11 @@
         </div>
         <div class="form-group">
           <label class="form-label">Your location</label>
-          <div class="city-row">
-            <input type="text" id="reportCity" placeholder="City" autocomplete="off" />
+          <div class="city-row" style="align-items:flex-start">
+            <div class="autocomplete-wrap" style="flex:1">
+              <input type="text" id="reportCity" placeholder="City" autocomplete="off" />
+              <div class="autocomplete-list" id="cityList" style="display:none"></div>
+            </div>
             <button class="btn-detect" id="btnDetectReport">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
               Detect
@@ -212,6 +218,7 @@
   </div>
 
   <div class="toast" id="toast"></div>
+  <script src="js/cities.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

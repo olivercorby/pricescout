@@ -61,6 +61,47 @@ function showToast(msg, duration = 3000) {
   toastTimer = setTimeout(() => el.classList.remove('visible'), duration);
 }
 
+
+// ── AUTOCOMPLETE ────────────────────────────────────────────
+
+function setupAutocomplete(inputId, listId, items, onSelect) {
+  const input = document.getElementById(inputId);
+  const list = document.getElementById(listId);
+  if (!input || !list) return;
+
+  input.addEventListener('input', () => {
+    const val = input.value.trim().toLowerCase();
+    list.innerHTML = '';
+    if (val.length < 1) { list.style.display = 'none'; return; }
+
+    const matches = items.filter(i => i.toLowerCase().startsWith(val)).slice(0, 8);
+    if (matches.length === 0) { list.style.display = 'none'; return; }
+
+    matches.forEach(m => {
+      const item = document.createElement('div');
+      item.className = 'autocomplete-item';
+      item.textContent = m;
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        input.value = m;
+        list.style.display = 'none';
+        if (onSelect) onSelect(m);
+      });
+      list.appendChild(item);
+    });
+
+    list.style.display = 'block';
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => { list.style.display = 'none'; }, 150);
+  });
+
+  input.addEventListener('focus', () => {
+    if (input.value.trim().length > 0) input.dispatchEvent(new Event('input'));
+  });
+}
+
 // ── AUTH ───────────────────────────────────────────────────
 
 async function sendCode() {
@@ -376,7 +417,7 @@ function renderResults(results) {
 
     card.querySelector('.flag-btn').addEventListener('click', (e) => {
       e.stopPropagation();
-      flagReport(r.id, card);
+      flagReport(r.id, card, r.price);
     });
 
     list.appendChild(card);
@@ -385,10 +426,15 @@ function renderResults(results) {
 
 // ── FLAG REPORT ────────────────────────────────────────────
 
-async function flagReport(id, cardEl) {
+async function flagReport(id, cardEl, currentPrice) {
   try {
-    const res = await fetch(`/.netlify/functions/flag-report?id=${id}`, { method: 'POST' });
+    const res = await fetch('/.netlify/functions/flag-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
     const data = await res.json();
+
     if (data.hidden) {
       cardEl.style.transition = 'opacity 0.3s, transform 0.3s';
       cardEl.style.opacity = '0';
@@ -399,9 +445,109 @@ async function flagReport(id, cardEl) {
       showToast(`Flagged as outdated (${data.flags}/3)`);
       const btn = cardEl.querySelector('.flag-btn');
       if (btn) btn.style.color = 'var(--text-primary)';
+
+      // Show price suggestion form if not already showing
+      if (!cardEl.querySelector('.flag-notice')) {
+        showFlagNotice(id, cardEl, currentPrice, data.flags);
+      }
     }
   } catch (e) {
     showToast('Could not flag report');
+  }
+}
+
+async function showFlagNotice(id, cardEl, currentPrice, flagCount) {
+  // Check if there's already a suggestion
+  let existing = null;
+  try {
+    const res = await fetch(`/.netlify/functions/flag-report?id=${id}`);
+    const data = await res.json();
+    existing = data.suggestion;
+  } catch (e) {}
+
+  const notice = document.createElement('div');
+
+  if (existing) {
+    const needed = 3 - existing.confirmations;
+    notice.className = 'flag-notice';
+    notice.innerHTML = `
+      <div class="flag-notice-title">Price flagged (${flagCount}/3)</div>
+      <div class="flag-notice-body">Someone suggested $${parseFloat(existing.suggested_price).toFixed(2)} CAD as the current price. Needs ${needed} more confirmation${needed !== 1 ? 's' : ''} to update.</div>
+      <button class="btn-confirm-price" data-id="${id}" data-price="${existing.suggested_price}">
+        ✓ Confirm $${parseFloat(existing.suggested_price).toFixed(2)}
+      </button>`;
+
+    notice.querySelector('.btn-confirm-price').addEventListener('click', async (e) => {
+      await confirmSuggestedPrice(id, existing.suggested_price, cardEl);
+    });
+  } else {
+    notice.className = 'flag-notice';
+    notice.innerHTML = `
+      <div class="flag-notice-title">Price flagged (${flagCount}/3)</div>
+      <div class="flag-notice-body">What's the current price? Your suggestion needs 2 more confirmations to update.</div>
+      <div class="suggest-price-row">
+        <div class="suggest-price-wrap">
+          <span class="suggest-price-symbol">$</span>
+          <input class="suggest-price-input" type="number" placeholder="0.00" step="0.01" min="0" />
+        </div>
+        <button class="btn-suggest">Suggest</button>
+      </div>`;
+
+    notice.querySelector('.btn-suggest').addEventListener('click', async () => {
+      const input = notice.querySelector('.suggest-price-input');
+      const price = parseFloat(input.value);
+      if (!price || price <= 0) { showToast('Enter a valid price'); return; }
+      await submitPriceSuggestion(id, price, cardEl, notice);
+    });
+  }
+
+  cardEl.parentNode.insertBefore(notice, cardEl.nextSibling);
+}
+
+async function submitPriceSuggestion(id, price, cardEl, noticeEl) {
+  if (!session.isLoggedIn()) { showToast('Sign in to suggest prices'); return; }
+
+  try {
+    const res = await fetch('/.netlify/functions/flag-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, suggested_price: price, user_id: session.user.id, action: 'confirm' })
+    });
+    const data = await res.json();
+
+    if (data.price_updated) {
+      showToast(`Price updated to $${parseFloat(price).toFixed(2)}`);
+      loadPrices();
+    } else {
+      noticeEl.innerHTML = `
+        <div class="flag-notice-title">Suggestion submitted</div>
+        <div class="flag-notice-body">$${parseFloat(price).toFixed(2)} suggested. Needs ${data.needed} more confirmation${data.needed !== 1 ? 's' : ''} to update.</div>`;
+      showToast('Price suggestion submitted — thanks!');
+    }
+  } catch (e) {
+    showToast('Could not submit suggestion');
+  }
+}
+
+async function confirmSuggestedPrice(id, price, cardEl) {
+  if (!session.isLoggedIn()) { showToast('Sign in to confirm prices'); return; }
+
+  try {
+    const res = await fetch('/.netlify/functions/flag-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, suggested_price: price, user_id: session.user.id, action: 'confirm' })
+    });
+    const data = await res.json();
+
+    if (data.price_updated) {
+      showToast(`Price updated to $${parseFloat(price).toFixed(2)}`);
+      loadPrices();
+    } else {
+      showToast(`Confirmed — needs ${data.needed} more confirmation${data.needed !== 1 ? 's' : ''}`);
+    }
+  } catch (e) {
+    showToast('Could not confirm price');
   }
 }
 
@@ -506,6 +652,10 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     showScreen('login');
   }
+
+  // Autocomplete
+  setupAutocomplete('reportCity', 'cityList', CANADIAN_CITIES);
+  setupAutocomplete('reportStore', 'storeList', CANADIAN_RETAILERS);
 
   // Login screen
   document.getElementById('btnSendCode').addEventListener('click', sendCode);
