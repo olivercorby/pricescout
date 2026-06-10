@@ -144,6 +144,7 @@ async function verifyCode() {
   const btn = document.getElementById('btnVerifyCode');
   btn.disabled = true;
   btn.textContent = 'Verifying...';
+  btn.style.opacity = '0.6';
 
   try {
     const res = await fetch('/.netlify/functions/verify-code', {
@@ -158,14 +159,21 @@ async function verifyCode() {
     if (!res.ok) throw new Error(data.error || 'Verification failed');
 
     session.save(data.user);
-    showToast(`Welcome${data.user.email ? ', ' + data.user.email.split('@')[0] : ''}!`);
-    showScreen('scan');
+    // Show onboarding for first-time users
+    const isNew = !localStorage.getItem('ps_onboarded');
+    if (isNew) {
+      showScreen('onboard');
+    } else {
+      showToast(`Welcome back${data.user.email ? ', ' + data.user.email.split('@')[0] : ''}!`);
+      showScreen('scan');
+    }
 
   } catch (e) {
     showToast(e.message || 'Could not verify — try again');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Sign in';
+    btn.style.opacity = '';
   }
 }
 
@@ -435,6 +443,40 @@ function renderResults(results) {
   });
 }
 
+
+// ── UNDO TOAST ─────────────────────────────────────────────
+
+let undoTimer = null;
+let undoEl = null;
+
+function showUndoToast(msg, reportId) {
+  if (!undoEl) {
+    undoEl = document.createElement('div');
+    undoEl.className = 'undo-toast';
+    undoEl.innerHTML = `<span id="undoMsg"></span><button class="undo-btn" id="undoBtn">Undo</button>`;
+    document.body.appendChild(undoEl);
+  }
+
+  document.getElementById('undoMsg').textContent = msg;
+  undoEl.classList.add('visible');
+  clearTimeout(undoTimer);
+
+  document.getElementById('undoBtn').onclick = async () => {
+    undoEl.classList.remove('visible');
+    if (reportId) {
+      try {
+        await fetch(`/.netlify/functions/delete-report?id=${reportId}`, { method: 'DELETE' });
+        loadPrices();
+        showToast('Report removed');
+      } catch (e) {
+        showToast('Could not undo');
+      }
+    }
+  };
+
+  undoTimer = setTimeout(() => undoEl.classList.remove('visible'), 5000);
+}
+
 // ── FLAG REPORT ────────────────────────────────────────────
 
 async function flagReport(id, cardEl, currentPrice) {
@@ -617,9 +659,10 @@ async function submitReport() {
     if (res.status === 429) { showToast('You already reported this store today'); return; }
     if (!res.ok) throw new Error('Submit failed');
 
-    showToast('Price reported — thank you!');
+    const reportData = await res.json();
     showScreen('results');
     loadPrices();
+    showUndoToast('Price reported — thank you!', reportData.id);
 
   } catch (e) {
     showToast('Could not submit — try again');
@@ -644,10 +687,12 @@ async function openAccountScreen() {
 
   // Load report count
   try {
-    const res = await fetch(`/.netlify/functions/get-prices?user_id=${user.id}&count_only=true`);
-    // For now show placeholder — count endpoint can be added later
-    document.getElementById('statReports').textContent = '—';
-  } catch (e) {}
+    const res = await fetch(`/.netlify/functions/user-stats?user_id=${user.id}`);
+    const data = await res.json();
+    document.getElementById('statReports').textContent = data.count || 0;
+  } catch (e) {
+    document.getElementById('statReports').textContent = '0';
+  }
 
   showScreen('account');
 }
@@ -657,12 +702,19 @@ async function openAccountScreen() {
 document.addEventListener('DOMContentLoaded', () => {
   session.load();
 
-  // Start on scan if already logged in, otherwise login screen
+  // Start on correct screen
   if (session.isLoggedIn()) {
-    showScreen('scan');
+    const onboarded = localStorage.getItem('ps_onboarded');
+    showScreen(onboarded ? 'scan' : 'onboard');
   } else {
     showScreen('login');
   }
+
+  // Onboarding
+  document.getElementById('btnStartScanning')?.addEventListener('click', () => {
+    localStorage.setItem('ps_onboarded', '1');
+    showScreen('scan');
+  });
 
   // Autocomplete
   setupAutocomplete('reportCity', 'cityList', CANADIAN_CITIES);

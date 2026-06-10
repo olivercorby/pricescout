@@ -65,7 +65,7 @@ exports.handler = async function(event) {
         'apikey': SUPABASE_SERVICE_KEY,
         'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
         'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
+        'Prefer': 'return=representation'
       },
       body: JSON.stringify(record)
     });
@@ -75,7 +75,10 @@ exports.handler = async function(event) {
       throw new Error(`Supabase insert failed: ${err}`);
     }
 
-    return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
+    const inserted = await res.json();
+    const newId = Array.isArray(inserted) && inserted[0] ? inserted[0].id : null;
+
+    return { statusCode: 200, headers, body: JSON.stringify({ success: true, id: newId }) };
 
   } catch (err) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
