@@ -14,10 +14,57 @@
 </head>
 <body>
 
+  <!-- SCREEN: LOGIN (email entry) -->
+  <div id="screen-login" class="screen active">
+    <div class="screen-inner auth-screen">
+      <div class="auth-logo">PRICESCOUT</div>
+      <div class="auth-hero">Canada's community price tracker</div>
+      <div class="auth-sub">Scan barcodes. See what others paid nearby. Report prices to help your community.</div>
+
+      <div class="auth-form">
+        <div class="form-group">
+          <label class="form-label">Your email</label>
+          <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email" inputmode="email" />
+        </div>
+        <button class="btn-submit" id="btnSendCode">Continue</button>
+      </div>
+
+      <div class="auth-footer">No password. We'll send you a 6-digit code.</div>
+    </div>
+  </div>
+
+  <!-- SCREEN: VERIFY CODE -->
+  <div id="screen-verify" class="screen">
+    <div class="screen-inner auth-screen">
+      <button class="btn-back" id="btnBackToLogin">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+
+      <div class="auth-logo">PRICESCOUT</div>
+      <div class="auth-hero">Check your email</div>
+      <div class="auth-sub" id="verifySub">We sent a 6-digit code to your email address.</div>
+
+      <div class="auth-form">
+        <div class="form-group">
+          <label class="form-label">6-digit code</label>
+          <input type="text" id="verifyCode" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" style="font-size:28px;font-weight:800;letter-spacing:0.2em;text-align:center;" />
+        </div>
+        <button class="btn-submit" id="btnVerifyCode">Sign in</button>
+        <button class="btn-ghost" id="btnResendCode">Resend code</button>
+      </div>
+
+      <div class="auth-footer">Code expires in 10 minutes.</div>
+    </div>
+  </div>
+
   <!-- SCREEN: SCAN -->
-  <div id="screen-scan" class="screen active">
+  <div id="screen-scan" class="screen">
     <header class="app-header">
       <div class="wordmark">PRICESCOUT</div>
+      <button class="btn-account" id="btnAccount">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      </button>
     </header>
     <div class="scan-area">
       <div>
@@ -66,12 +113,10 @@
         </button>
         <button class="btn-new-scan" id="btnNewScan">New scan</button>
       </div>
-
-      <div class="results-product" id="resultsProduct">
+      <div class="results-product">
         <div class="results-product-name" id="resultsProductName">Loading...</div>
         <div class="results-meta" id="resultsMeta"></div>
       </div>
-
       <div class="location-bar">
         <div class="location-bar-inner">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
@@ -84,12 +129,10 @@
           <button class="radius-pill" data-km="100">100km</button>
         </div>
       </div>
-
       <button class="btn-report" id="btnReport">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Report a price
       </button>
-
       <div class="results-list" id="resultsList">
         <div class="loading-state">
           <div class="spinner"></div>
@@ -106,12 +149,10 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
         Back
       </button>
-
       <div class="report-header">
         <div class="report-title">Report a price</div>
         <div class="report-subtitle">Help other shoppers in your area</div>
       </div>
-
       <div class="product-preview">
         <div class="product-image-wrap" id="reportProductImage">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
@@ -121,13 +162,11 @@
           <div class="product-brand" id="reportProductBrand"></div>
         </div>
       </div>
-
       <div class="form-section">
         <div class="form-group">
           <label class="form-label">Store name</label>
           <input type="text" id="reportStore" placeholder="e.g. Canadian Tire, Walmart, Costco" autocomplete="off" />
         </div>
-
         <div class="form-group">
           <label class="form-label">Price you paid</label>
           <div class="price-input-wrap">
@@ -135,7 +174,6 @@
             <input type="number" id="reportPrice" placeholder="0.00" step="0.01" min="0" />
           </div>
         </div>
-
         <div class="form-group">
           <label class="form-label">Your location</label>
           <div class="city-row">
@@ -147,11 +185,29 @@
           </div>
         </div>
       </div>
+      <button class="btn-submit" id="btnSubmitReport">Submit price</button>
+    </div>
+  </div>
 
-      <button class="btn-submit" id="btnSubmitReport">
-        Submit price
+  <!-- SCREEN: ACCOUNT -->
+  <div id="screen-account" class="screen">
+    <div class="screen-inner">
+      <button class="btn-back" id="btnBackFromAccount">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
       </button>
-
+      <div class="account-header">
+        <div class="account-avatar" id="accountAvatar">?</div>
+        <div class="account-email" id="accountEmail"></div>
+        <div class="account-since" id="accountSince"></div>
+      </div>
+      <div class="account-stats">
+        <div class="stat-card">
+          <div class="stat-number" id="statReports">—</div>
+          <div class="stat-label">Prices reported</div>
+        </div>
+      </div>
+      <button class="btn-signout" id="btnSignOut">Sign out</button>
     </div>
   </div>
 

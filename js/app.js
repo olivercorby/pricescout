@@ -1,6 +1,33 @@
 // ============================================================
-// PRICESCOUT — Community Price Tracker
+// PRICESCOUT — Community Price Tracker with Auth
 // ============================================================
+
+// ── SESSION ────────────────────────────────────────────────
+
+const session = {
+  user: null,
+
+  load() {
+    try {
+      const stored = localStorage.getItem('ps_session');
+      if (stored) this.user = JSON.parse(stored);
+    } catch (e) { this.user = null; }
+  },
+
+  save(user) {
+    this.user = user;
+    localStorage.setItem('ps_session', JSON.stringify(user));
+  },
+
+  clear() {
+    this.user = null;
+    localStorage.removeItem('ps_session');
+  },
+
+  isLoggedIn() {
+    return !!this.user?.id;
+  }
+};
 
 // ── STATE ──────────────────────────────────────────────────
 
@@ -13,17 +40,8 @@ const state = {
   radiusKm: 25,
   cameraStream: null,
   barcodeDetector: null,
-  userToken: getUserToken()
+  pendingEmail: null
 };
-
-function getUserToken() {
-  let token = localStorage.getItem('ps_token');
-  if (!token) {
-    token = 'u_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem('ps_token', token);
-  }
-  return token;
-}
 
 // ── SCREENS ────────────────────────────────────────────────
 
@@ -41,6 +59,87 @@ function showToast(msg, duration = 3000) {
   el.classList.add('visible');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('visible'), duration);
+}
+
+// ── AUTH ───────────────────────────────────────────────────
+
+async function sendCode() {
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  if (!email || !email.includes('@')) { showToast('Enter a valid email'); return; }
+
+  const btn = document.getElementById('btnSendCode');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  try {
+    const res = await fetch('/.netlify/functions/send-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to send code');
+
+    state.pendingEmail = email;
+    document.getElementById('verifySub').textContent = `We sent a 6-digit code to ${email}`;
+    document.getElementById('verifyCode').value = '';
+    showScreen('verify');
+    setTimeout(() => document.getElementById('verifyCode').focus(), 300);
+
+  } catch (e) {
+    showToast(e.message || 'Could not send code — try again');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Continue';
+  }
+}
+
+async function verifyCode() {
+  const code = document.getElementById('verifyCode').value.trim();
+  if (code.length !== 6) { showToast('Enter the 6-digit code'); return; }
+  if (!state.pendingEmail) { showScreen('login'); return; }
+
+  const btn = document.getElementById('btnVerifyCode');
+  btn.disabled = true;
+  btn.textContent = 'Verifying...';
+
+  try {
+    const res = await fetch('/.netlify/functions/verify-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: state.pendingEmail, code })
+    });
+
+    const data = await res.json();
+
+    if (res.status === 401) { showToast('Invalid or expired code'); return; }
+    if (!res.ok) throw new Error(data.error || 'Verification failed');
+
+    session.save(data.user);
+    showToast(`Welcome${data.user.email ? ', ' + data.user.email.split('@')[0] : ''}!`);
+    showScreen('scan');
+
+  } catch (e) {
+    showToast(e.message || 'Could not verify — try again');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+}
+
+async function resendCode() {
+  if (!state.pendingEmail) { showScreen('login'); return; }
+  document.getElementById('loginEmail').value = state.pendingEmail;
+  await sendCode();
+}
+
+function signOut() {
+  session.clear();
+  state.scannedCode = null;
+  state.product = null;
+  showScreen('login');
+  showToast('Signed out');
 }
 
 // ── CAMERA / SCANNING ──────────────────────────────────────
@@ -102,24 +201,20 @@ async function handleCode(code) {
   code = code.trim();
   state.scannedCode = code;
 
-  // Go straight to results, look up product in background
   showScreen('results');
   document.getElementById('resultsProductName').textContent = 'Looking up product...';
   document.getElementById('resultsMeta').textContent = code;
   document.getElementById('resultsList').innerHTML = `<div class="loading-state"><div class="spinner"></div><div class="loading-text">Looking up prices...</div></div>`;
 
-  // Detect location and look up product in parallel
   const [product] = await Promise.all([
     lookupProduct(code).catch(() => ({ title: code, brand: '', images: [] })),
     detectLocationSilent()
   ]);
 
   state.product = product;
-
   document.getElementById('resultsProductName').textContent = product.title || code;
   document.getElementById('resultsMeta').textContent = product.brand || '';
 
-  // Load community prices
   loadPrices();
 }
 
@@ -129,17 +224,10 @@ async function lookupProduct(code) {
   const res = await fetch(`/.netlify/functions/lookup?code=${encodeURIComponent(code)}`);
   if (!res.ok) throw new Error('Lookup failed');
   const data = await res.json();
-  const isBarcode = /^\d{6,14}$/.test(code);
   const items = data.items || [];
   if (items.length > 0) {
     const item = items[0];
-    return {
-      title: item.title,
-      brand: item.brand,
-      images: item.images || [],
-      category: item.category,
-      searchQuery: item.title || code
-    };
+    return { title: item.title, brand: item.brand, images: item.images || [], category: item.category, searchQuery: item.title || code };
   }
   throw new Error('Not found');
 }
@@ -163,10 +251,7 @@ async function detectLocationSilent() {
         }
         resolve(pos);
       },
-      () => {
-        document.getElementById('locationLabel').textContent = 'Location unavailable';
-        resolve(null);
-      },
+      () => { document.getElementById('locationLabel').textContent = 'Location unavailable'; resolve(null); },
       { timeout: 8000 }
     );
   });
@@ -174,13 +259,14 @@ async function detectLocationSilent() {
 
 async function detectLocationForReport() {
   const btn = document.getElementById('btnDetectReport');
+  const originalHTML = btn.innerHTML;
   btn.textContent = 'Detecting...';
   btn.disabled = true;
 
   return new Promise(resolve => {
     if (!navigator.geolocation) {
       showToast('Geolocation not available');
-      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg> Detect`;
+      btn.innerHTML = originalHTML;
       btn.disabled = false;
       resolve(null);
       return;
@@ -193,18 +279,15 @@ async function detectLocationForReport() {
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${state.userLat}&lon=${state.userLng}&format=json`);
           const data = await res.json();
           const city = data.address?.city || data.address?.town || data.address?.village || '';
-          if (city) {
-            document.getElementById('reportCity').value = city;
-            showToast(`Location set to ${city}`);
-          }
+          if (city) { document.getElementById('reportCity').value = city; showToast(`Location set to ${city}`); }
         } catch (e) {}
-        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg> Detect`;
+        btn.innerHTML = originalHTML;
         btn.disabled = false;
         resolve(pos);
       },
       () => {
         showToast('Location denied — enter city manually');
-        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg> Detect`;
+        btn.innerHTML = originalHTML;
         btn.disabled = false;
         resolve(null);
       }
@@ -216,15 +299,11 @@ async function detectLocationForReport() {
 
 async function loadPrices() {
   if (!state.scannedCode) return;
-
   const list = document.getElementById('resultsList');
   list.innerHTML = `<div class="loading-state"><div class="spinner"></div><div class="loading-text">Looking up prices...</div></div>`;
 
   try {
-    const params = new URLSearchParams({
-      barcode: state.scannedCode,
-      radius_km: state.radiusKm
-    });
+    const params = new URLSearchParams({ barcode: state.scannedCode, radius_km: state.radiusKm });
     if (state.userLat) params.set('lat', state.userLat);
     if (state.userLng) params.set('lng', state.userLng);
 
@@ -270,13 +349,11 @@ function renderResults(results) {
   }
 
   const lowestPrice = Math.min(...results.map(r => r.price));
-
   list.innerHTML = `<div class="results-count">${results.length} PRICE${results.length !== 1 ? 'S' : ''} REPORTED</div>`;
 
   results.forEach(r => {
     const isBest = r.price === lowestPrice;
     const initial = (r.store_name || '?').charAt(0).toUpperCase();
-    const locationText = r.city ? r.city : 'Unknown location';
     const age = timeAgo(r.created_at);
 
     const card = document.createElement('div');
@@ -286,7 +363,7 @@ function renderResults(results) {
       <div class="result-store-initial">${initial}</div>
       <div class="result-info">
         <div class="result-store">${r.store_name}</div>
-        <div class="result-location">${locationText}</div>
+        <div class="result-location">${r.city || 'Unknown location'}</div>
         <div class="result-age">${age}</div>
       </div>
       <div class="result-right">
@@ -295,8 +372,7 @@ function renderResults(results) {
       </div>
       <button class="flag-btn" data-id="${r.id}" title="Flag as outdated">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-      </button>
-    `;
+      </button>`;
 
     card.querySelector('.flag-btn').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -314,7 +390,6 @@ async function flagReport(id, cardEl) {
     const res = await fetch(`/.netlify/functions/flag-report?id=${id}`, { method: 'POST' });
     const data = await res.json();
     if (data.hidden) {
-      // 3 flags hit — remove card from UI immediately
       cardEl.style.transition = 'opacity 0.3s, transform 0.3s';
       cardEl.style.opacity = '0';
       cardEl.style.transform = 'translateX(10px)';
@@ -322,7 +397,6 @@ async function flagReport(id, cardEl) {
       showToast('Price removed — thanks for keeping it accurate');
     } else {
       showToast(`Flagged as outdated (${data.flags}/3)`);
-      // Visually dim the flag button so user knows it registered
       const btn = cardEl.querySelector('.flag-btn');
       if (btn) btn.style.color = 'var(--text-primary)';
     }
@@ -331,31 +405,23 @@ async function flagReport(id, cardEl) {
   }
 }
 
-// ── OPEN REPORT SCREEN ─────────────────────────────────────
+// ── REPORT SCREEN ──────────────────────────────────────────
 
 function openReportScreen() {
   const product = state.product || {};
-
   document.getElementById('reportProductName').textContent = product.title || state.scannedCode || '';
   document.getElementById('reportProductBrand').textContent = product.brand || '';
 
   const imgWrap = document.getElementById('reportProductImage');
-  if (product.images && product.images.length > 0) {
+  if (product.images?.length > 0) {
     imgWrap.innerHTML = `<img src="${product.images[0]}" alt="" onerror="this.style.display='none'">`;
   }
 
-  // Pre-fill city if we already have it
-  if (state.userCity) {
-    document.getElementById('reportCity').value = state.userCity;
-  }
-
+  if (state.userCity) document.getElementById('reportCity').value = state.userCity;
   document.getElementById('reportStore').value = '';
   document.getElementById('reportPrice').value = '';
-
   showScreen('report');
 }
-
-// ── SUBMIT REPORT ──────────────────────────────────────────
 
 async function submitReport() {
   const store = document.getElementById('reportStore').value.trim();
@@ -365,6 +431,7 @@ async function submitReport() {
   if (!store) { showToast('Enter the store name'); return; }
   if (!priceVal || isNaN(parseFloat(priceVal))) { showToast('Enter a valid price'); return; }
   if (!city) { showToast('Enter your city'); return; }
+  if (!session.isLoggedIn()) { showToast('Please sign in to report prices'); showScreen('login'); return; }
 
   const btn = document.getElementById('btnSubmitReport');
   btn.disabled = true;
@@ -378,10 +445,10 @@ async function submitReport() {
       store_name: store,
       price: parseFloat(priceVal),
       currency: 'CAD',
-      city: city,
+      city,
       lat: state.userLat,
       lng: state.userLng,
-      user_token: state.userToken
+      user_id: session.user.id
     };
 
     const res = await fetch('/.netlify/functions/submit-price', {
@@ -390,10 +457,7 @@ async function submitReport() {
       body: JSON.stringify(body)
     });
 
-    if (res.status === 429) {
-      showToast('You already reported this store today');
-      return;
-    }
+    if (res.status === 429) { showToast('You already reported this store today'); return; }
     if (!res.ok) throw new Error('Submit failed');
 
     showToast('Price reported — thank you!');
@@ -408,14 +472,61 @@ async function submitReport() {
   }
 }
 
-// ── EVENT LISTENERS ────────────────────────────────────────
+// ── ACCOUNT SCREEN ─────────────────────────────────────────
+
+async function openAccountScreen() {
+  if (!session.isLoggedIn()) { showScreen('login'); return; }
+
+  const user = session.user;
+  const initial = user.email.charAt(0).toUpperCase();
+  document.getElementById('accountAvatar').textContent = initial;
+  document.getElementById('accountEmail').textContent = user.email;
+
+  const joined = new Date(user.created_at);
+  document.getElementById('accountSince').textContent = `Member since ${joined.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' })}`;
+
+  // Load report count
+  try {
+    const res = await fetch(`/.netlify/functions/get-prices?user_id=${user.id}&count_only=true`);
+    // For now show placeholder — count endpoint can be added later
+    document.getElementById('statReports').textContent = '—';
+  } catch (e) {}
+
+  showScreen('account');
+}
+
+// ── INIT ───────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+  session.load();
+
+  // Start on scan if already logged in, otherwise login screen
+  if (session.isLoggedIn()) {
+    showScreen('scan');
+  } else {
+    showScreen('login');
+  }
+
+  // Login screen
+  document.getElementById('btnSendCode').addEventListener('click', sendCode);
+  document.getElementById('loginEmail').addEventListener('keydown', e => { if (e.key === 'Enter') sendCode(); });
+
+  // Verify screen
+  document.getElementById('btnBackToLogin').addEventListener('click', () => showScreen('login'));
+  document.getElementById('btnVerifyCode').addEventListener('click', verifyCode);
+  document.getElementById('btnResendCode').addEventListener('click', resendCode);
+  document.getElementById('verifyCode').addEventListener('keydown', e => { if (e.key === 'Enter') verifyCode(); });
+
+  // Auto-submit when 6 digits entered
+  document.getElementById('verifyCode').addEventListener('input', e => {
+    if (e.target.value.length === 6) verifyCode();
+  });
 
   // Scan screen
   document.getElementById('btnStartCamera').addEventListener('click', startCamera);
   document.getElementById('btnManualSearch').addEventListener('click', () => handleCode(document.getElementById('manualCode').value));
   document.getElementById('manualCode').addEventListener('keydown', e => { if (e.key === 'Enter') handleCode(document.getElementById('manualCode').value); });
+  document.getElementById('btnAccount').addEventListener('click', openAccountScreen);
 
   // Results screen
   document.getElementById('btnBackToScan').addEventListener('click', () => { stopCamera(); showScreen('scan'); });
@@ -441,6 +552,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnDetectReport').addEventListener('click', detectLocationForReport);
   document.getElementById('btnSubmitReport').addEventListener('click', submitReport);
 
+  // Account screen
+  document.getElementById('btnBackFromAccount').addEventListener('click', () => showScreen('scan'));
+  document.getElementById('btnSignOut').addEventListener('click', signOut);
 });
 
 // ── SERVICE WORKER ─────────────────────────────────────────

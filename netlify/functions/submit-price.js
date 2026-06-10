@@ -1,7 +1,7 @@
 exports.handler = async function(event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type': 'application/json'
   };
 
@@ -9,45 +9,39 @@ exports.handler = async function(event) {
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 
   const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Supabase not configured' }) };
   }
 
   try {
     const body = JSON.parse(event.body || '{}');
-    const { barcode, product_name, product_brand, store_name, price, currency, city, lat, lng, user_token } = body;
+    const { barcode, product_name, product_brand, store_name, price, currency, city, lat, lng, user_id } = body;
 
-    if (!barcode || !store_name || !price || !city) {
+    if (!barcode || !store_name || !price || !city || !user_id) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing required fields' }) };
     }
 
-    // Duplicate suppression — block same user submitting same barcode+store within 24 hours
-    if (user_token) {
-      const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
-      const checkUrl = `${SUPABASE_URL}/rest/v1/price_reports`
-        + `?barcode=eq.${encodeURIComponent(barcode)}`
-        + `&store_name=eq.${encodeURIComponent(store_name.trim())}`
-        + `&user_token=eq.${encodeURIComponent(user_token)}`
-        + `&created_at=gte.${oneDayAgo}`
-        + `&limit=1`;
+    // Duplicate suppression — same user, same barcode, same store within 24 hours
+    const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+    const checkUrl = `${SUPABASE_URL}/rest/v1/price_reports`
+      + `?barcode=eq.${encodeURIComponent(barcode)}`
+      + `&store_name=eq.${encodeURIComponent(store_name.trim())}`
+      + `&user_id=eq.${encodeURIComponent(user_id)}`
+      + `&created_at=gte.${oneDayAgo}`
+      + `&limit=1`;
 
-      const checkRes = await fetch(checkUrl, {
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        }
-      });
+    const checkRes = await fetch(checkUrl, {
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+      }
+    });
 
-      if (checkRes.ok) {
-        const existing = await checkRes.json();
-        if (existing.length > 0) {
-          return {
-            statusCode: 429,
-            headers,
-            body: JSON.stringify({ error: 'You already reported this product at this store today' })
-          };
-        }
+    if (checkRes.ok) {
+      const existing = await checkRes.json();
+      if (existing.length > 0) {
+        return { statusCode: 429, headers, body: JSON.stringify({ error: 'You already reported this product at this store today' }) };
       }
     }
 
@@ -61,15 +55,15 @@ exports.handler = async function(event) {
       city: String(city).trim(),
       lat: lat ? parseFloat(lat) : null,
       lng: lng ? parseFloat(lng) : null,
-      user_token: user_token || null,
+      user_id: user_id,
       flags: 0
     };
 
     const res = await fetch(`${SUPABASE_URL}/rest/v1/price_reports`, {
       method: 'POST',
       headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
       },
