@@ -99,7 +99,8 @@ exports.handler = async function(event) {
           'apikey': SUPABASE_SERVICE_KEY,
           'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
           'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates,return=minimal'
+          'Prefer': 'resolution=merge-duplicates,return=minimal',
+          'On-Conflict': 'barcode'
         },
         body: JSON.stringify({
           barcode: code.trim(),

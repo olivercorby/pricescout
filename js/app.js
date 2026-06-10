@@ -240,21 +240,32 @@ async function scanLoop(video) {
 async function handleCode(code) {
   if (!code || !code.trim()) { showToast('Enter a barcode or model number'); return; }
   code = code.trim();
+
+  // Reset product state on every new scan
   state.scannedCode = code;
+  state.product = null;
 
   showScreen('results');
   document.getElementById('resultsProductName').textContent = 'Looking up product...';
-  document.getElementById('resultsMeta').textContent = code;
+  document.getElementById('resultsMeta').textContent = '';
   document.getElementById('resultsList').innerHTML = `<div class="loading-state"><div class="spinner"></div><div class="loading-text">Looking up prices...</div></div>`;
 
+  // Run lookup and location in parallel
   const [product] = await Promise.all([
-    lookupProduct(code).catch(() => ({ title: code, brand: '', images: [] })),
+    lookupProduct(code).catch(() => null),
     detectLocationSilent()
   ]);
 
-  state.product = product;
-  document.getElementById('resultsProductName').textContent = product.title || code;
-  document.getElementById('resultsMeta').textContent = product.brand || '';
+  if (product && product.title) {
+    state.product = product;
+    document.getElementById('resultsProductName').textContent = product.title;
+    document.getElementById('resultsMeta').textContent = product.brand || '';
+  } else {
+    // Fallback — show the barcode/code but keep looking
+    state.product = { title: code, brand: '', images: [] };
+    document.getElementById('resultsProductName').textContent = code;
+    document.getElementById('resultsMeta').textContent = 'Product details unavailable';
+  }
 
   loadPrices();
 }
