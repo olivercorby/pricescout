@@ -31,9 +31,10 @@ exports.handler = async function(event) {
           }
         }
       );
+
       if (cacheRes.ok) {
         const cached = await cacheRes.json();
-        if (cached.length > 0) {
+        if (cached.length > 0 && cached[0].title) {
           const p = cached[0];
           return {
             statusCode: 200,
@@ -41,13 +42,13 @@ exports.handler = async function(event) {
             body: JSON.stringify({
               items: [{
                 title: p.title,
-                brand: p.brand,
+                brand: p.brand || '',
                 images: p.image_url ? [p.image_url] : [],
-                category: p.category,
-                description: p.description,
-                searchQuery: p.title || code
+                category: p.category || '',
+                description: p.description || '',
+                searchQuery: p.title
               }],
-              cached: true
+              source: 'cache'
             })
           };
         }
@@ -90,34 +91,40 @@ exports.handler = async function(event) {
       searchQuery: p.product_name || code
     }));
 
-    // ── WRITE TO CACHE ─────────────────────────────────
-    if (isBarcode && normalized.length > 0 && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+    // ── WRITE TO CACHE (await so we know it worked) ────
+    if (isBarcode && normalized.length > 0 && normalized[0].title && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
       const p = normalized[0];
-      fetch(`${SUPABASE_URL}/rest/v1/products`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates,return=minimal',
-          'On-Conflict': 'barcode'
-        },
-        body: JSON.stringify({
-          barcode: code.trim(),
-          title: p.title,
-          brand: p.brand,
-          image_url: p.images[0] || null,
-          category: p.category,
-          description: p.description,
-          cached_at: new Date().toISOString()
-        })
-      }).catch(() => {}); // fire and forget
+      try {
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/products?on_conflict=barcode`,
+          {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_SERVICE_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates,return=minimal'
+            },
+            body: JSON.stringify({
+              barcode: code.trim(),
+              title: p.title,
+              brand: p.brand,
+              image_url: p.images[0] || null,
+              category: p.category,
+              description: p.description,
+              cached_at: new Date().toISOString()
+            })
+          }
+        );
+      } catch (cacheErr) {
+        // Cache write failed but we still have the live result — return it anyway
+      }
     }
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ items: normalized })
+      body: JSON.stringify({ items: normalized, source: 'buycott' })
     };
 
   } catch (err) {
