@@ -2,16 +2,6 @@
   publish = "."
   functions = "netlify/functions"
 
-[[redirects]]
-  from = "/"
-  to = "/landing.html"
-  status = 200
-
-[[redirects]]
-  from = "/app"
-  to = "/index.html"
-  status = 200
-
 [[headers]]
   for = "/*"
   [headers.values]

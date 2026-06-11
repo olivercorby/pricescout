@@ -2,7 +2,7 @@
   "name": "PriceScout",
   "short_name": "PriceScout",
   "description": "Community-reported Canadian price comparison. Scan any barcode and see what others paid nearby.",
-  "start_url": "/",
+  "start_url": "/app.html",
   "display": "standalone",
   "background_color": "#FFFFFF",
   "theme_color": "#FFFFFF",
