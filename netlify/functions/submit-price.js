@@ -22,6 +22,19 @@ exports.handler = async function(event) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing required fields' }) };
     }
 
+    const parsedPrice = parseFloat(price);
+    if (isNaN(parsedPrice) || parsedPrice <= 0 || parsedPrice > 100000) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid price' }) };
+    }
+
+    if (String(store_name).trim().length > 100) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Store name too long' }) };
+    }
+
+    if (String(city).trim().length > 100) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'City name too long' }) };
+    }
+
     // Duplicate suppression — same user, same barcode, same store within 24 hours
     const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
     const checkUrl = `${SUPABASE_URL}/rest/v1/price_reports`

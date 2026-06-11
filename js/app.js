@@ -106,7 +106,8 @@ function setupAutocomplete(inputId, listId, items, onSelect) {
 
 async function sendCode() {
   const email = document.getElementById('loginEmail').value.trim().toLowerCase();
-  if (!email || !email.includes('@')) { showToast('Enter a valid email'); return; }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) { showToast('Enter a valid email address'); return; }
 
   const btn = document.getElementById('btnSendCode');
   btn.disabled = true;
@@ -120,6 +121,7 @@ async function sendCode() {
     });
 
     const data = await res.json();
+    if (res.status === 429) throw new Error('Too many attempts — please wait an hour before trying again');
     if (!res.ok) throw new Error(data.error || 'Failed to send code');
 
     state.pendingEmail = email;
@@ -418,17 +420,19 @@ function renderResults(results) {
 
     const card = document.createElement('div');
     card.className = `result-card${isBest ? ' best-price' : ''}`;
+    const safeName = (r.store_name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const safeCity = (r.city || 'Unknown location').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     card.innerHTML = `
       ${isBest ? '<div class="best-badge">Best price</div>' : ''}
       <div class="result-store-initial">${initial}</div>
       <div class="result-info">
-        <div class="result-store">${r.store_name}</div>
-        <div class="result-location">${r.city || 'Unknown location'}</div>
+        <div class="result-store">${safeName}</div>
+        <div class="result-location">${safeCity}</div>
         <div class="result-age">${age}</div>
       </div>
       <div class="result-right">
         <div class="result-price${isBest ? ' best' : ''}">$${parseFloat(r.price).toFixed(2)}</div>
-        <div style="font-size:10px;color:var(--text-dim);margin-top:3px;">${r.currency || 'CAD'}</div>
+        <div style="font-size:10px;color:var(--ink-4);margin-top:3px;">${r.currency || 'CAD'}</div>
       </div>
       <button class="flag-btn" data-id="${r.id}" title="Flag as outdated">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
@@ -628,7 +632,8 @@ async function submitReport() {
   const city = document.getElementById('reportCity').value.trim();
 
   if (!store) { showToast('Enter the store name'); return; }
-  if (!priceVal || isNaN(parseFloat(priceVal))) { showToast('Enter a valid price'); return; }
+  const parsedPrice = parseFloat(priceVal);
+  if (!priceVal || isNaN(parsedPrice) || parsedPrice <= 0 || parsedPrice > 100000) { showToast('Enter a valid price'); return; }
   if (!city) { showToast('Enter your city'); return; }
   if (!session.isLoggedIn()) { showToast('Please sign in to report prices'); showScreen('login'); return; }
 
@@ -642,7 +647,7 @@ async function submitReport() {
       product_name: state.product?.title || state.scannedCode,
       product_brand: state.product?.brand || '',
       store_name: store,
-      price: parseFloat(priceVal),
+      price: parsedPrice,
       currency: 'CAD',
       city,
       lat: state.userLat,

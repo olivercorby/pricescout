@@ -24,6 +24,18 @@ exports.handler = async function(event) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid email' }) };
     }
 
+    // Rate limit — max 3 code requests per email per hour
+    const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
+    const rateRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/auth_codes?email=eq.${encodeURIComponent(email)}&created_at=gte.${oneHourAgo}`,
+      { headers: { 'apikey': SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'Prefer': 'count=exact', 'Range': '0-0' } }
+    );
+    const rateRange = rateRes.headers.get('content-range') || '';
+    const recentCount = parseInt(rateRange.split('/')[1]) || 0;
+    if (recentCount >= 3) {
+      return { statusCode: 429, headers, body: JSON.stringify({ error: 'Too many requests — wait an hour before trying again' }) };
+    }
+
     // Generate 6 digit code
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
@@ -73,7 +85,7 @@ exports.handler = async function(event) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'PriceScout <onboarding@resend.dev>',
+        from: 'PriceScout <hello@mypricescout.ca>',
         to: [email],
         subject: `Your PriceScout code: ${code}`,
         html: `
