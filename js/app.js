@@ -40,6 +40,8 @@ const state = {
   radiusKm: 25,
   cameraStream: null,
   barcodeDetector: null,
+  zxingReader: null,
+  scanMethod: null,
   pendingEmail: null
 };
 
@@ -208,13 +210,41 @@ async function startCamera() {
     if (idle) idle.style.display = 'none';
 
     if ('BarcodeDetector' in window) {
+      // Native BarcodeDetector — Chrome Android
       state.barcodeDetector = new BarcodeDetector({
         formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code']
       });
+      state.scanMethod = 'native';
       scanLoop(video);
       showToast('Point at a barcode');
+    } else if (window.ZXing) {
+      // ZXing fallback — iOS Safari, iOS Chrome, Firefox
+      try {
+        const hints = new Map();
+        const formats = [
+          ZXing.BarcodeFormat.EAN_13,
+          ZXing.BarcodeFormat.EAN_8,
+          ZXing.BarcodeFormat.UPC_A,
+          ZXing.BarcodeFormat.UPC_E,
+          ZXing.BarcodeFormat.CODE_128,
+          ZXing.BarcodeFormat.CODE_39,
+          ZXing.BarcodeFormat.QR_CODE
+        ];
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+        state.zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+        state.scanMethod = 'zxing';
+        state.zxingReader.decodeFromVideoElement(video, (result, err) => {
+          if (result) {
+            stopCamera();
+            handleCode(result.getText());
+          }
+        });
+        showToast('Point at a barcode');
+      } catch (e) {
+        showToast('Camera active — use manual entry if scan fails');
+      }
     } else {
-      showToast('Camera active — use manual entry for best results');
+      showToast('Camera active — use manual entry if scan fails');
     }
   } catch (err) {
     showToast('Camera access denied — use manual entry');
@@ -222,6 +252,10 @@ async function startCamera() {
 }
 
 function stopCamera() {
+  if (state.zxingReader) {
+    try { state.zxingReader.reset(); } catch (e) {}
+    state.zxingReader = null;
+  }
   if (state.cameraStream) {
     state.cameraStream.getTracks().forEach(t => t.stop());
     state.cameraStream = null;
@@ -230,6 +264,7 @@ function stopCamera() {
   video.classList.remove('active');
   const idle = document.getElementById('scannerIdle');
   if (idle) idle.style.display = '';
+  state.scanMethod = null;
 }
 
 async function scanLoop(video) {
