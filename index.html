@@ -497,7 +497,7 @@
 
   <nav>
     <a href="/" class="nav-logo">PriceScout</a>
-    <a href="#signup" class="nav-cta">Get started</a>
+    <a href="mailto:hello@mypricescout.ca" class="nav-cta">Contact</a>
   </nav>
 
   <section class="hero">
@@ -506,7 +506,7 @@
     <p class="hero-sub">Groceries are expensive. Everything is expensive. And there is still no real way to know if the price on the shelf in front of you is fair. We waited for retailers to fix that. They never did. So we built it ourselves.</p>
     <div class="signup-form" id="signup">
       <input type="email" class="signup-email" id="heroEmail" placeholder="Your email address" autocomplete="email" inputmode="email" />
-      <button class="signup-btn" id="heroSignupBtn">Get started free</button>
+      <button class="signup-btn" id="heroSignupBtn">Help build this</button>
     </div>
     <div class="hero-note">No password. No personal information. Just your email to prove you are human.</div>
   </section>
@@ -599,7 +599,7 @@
     <div class="cta-footer-sub">Join Canadians building the price database their retailers refused to.</div>
     <div class="signup-form">
       <input type="email" class="signup-email" id="footerEmail" placeholder="Your email address" autocomplete="email" inputmode="email" />
-      <button class="signup-btn" id="footerSignupBtn">Get started free</button>
+      <button class="signup-btn" id="footerSignupBtn">Help build this</button>
     </div>
     <div class="cta-footer-note">No password. No credit card. No nonsense.</div>
   </section>
@@ -672,7 +672,7 @@
       } catch (e) {
         alert(e.message || 'Could not send code — try again');
       } finally {
-        btns.forEach(b => { b.disabled = false; b.textContent = 'Get started free'; });
+        btns.forEach(b => { b.disabled = false; b.textContent = 'Help build this'; });
       }
     }
 
