@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>System Status</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --border: rgba(0,0,0,0.07);
+      --border-mid: rgba(0,0,0,0.12);
+      --ink: #1A1A18;
+      --ink-2: #5C5C58;
+      --ink-3: #9C9C96;
+      --ink-4: #C4C4BE;
+      --green: #3B6D11;
+      --green-bg: #EAF3DE;
+      --amber: #854F0B;
+      --amber-bg: #FAEEDA;
+      --red: #A32D2D;
+      --red-bg: #FCEBEB;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    body { max-width: 720px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* ── AUTH ── */
+    #auth-screen {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    #auth-screen input {
+      width: 240px;
+      height: 42px;
+      background: var(--surface);
+      border: 0.5px solid var(--border-mid);
+      border-radius: 8px;
+      padding: 0 14px;
+      font-size: 15px;
+      color: var(--ink);
+      outline: none;
+      text-align: center;
+      letter-spacing: 0.1em;
+    }
+
+    #auth-screen button {
+      width: 240px;
+      height: 42px;
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    #auth-error {
+      font-size: 12px;
+      color: var(--red);
+      display: none;
+    }
+
+    /* ── DASHBOARD ── */
+    #dashboard { display: none; padding-top: 40px; }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 0.5px solid var(--border);
+    }
+
+    .page-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      color: var(--ink-4);
+      text-transform: uppercase;
+    }
+
+    .last-updated {
+      font-size: 11px;
+      color: var(--ink-4);
+    }
+
+    /* ── STAT GRID ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--ink-4);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 26px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .stat-sub {
+      font-size: 11px;
+      color: var(--ink-3);
+      margin-top: 5px;
+    }
+
+    /* ── SECTIONS ── */
+    .section {
+      margin-bottom: 32px;
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--ink-4);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    /* ── TABLE ── */
+    .data-table {
+      width: 100%;
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .data-row {
+      display: flex;
+      align-items: center;
+      padding: 11px 16px;
+      border-bottom: 0.5px solid var(--border);
+      gap: 12px;
+    }
+
+    .data-row:last-child { border-bottom: none; }
+
+    .data-main {
+      flex: 1;
+      font-size: 13px;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .data-sub {
+      font-size: 11px;
+      color: var(--ink-3);
+      margin-top: 1px;
+    }
+
+    .data-count {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-2);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    .data-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      flex-shrink: 0;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-amber { background: var(--amber-bg); color: var(--amber); }
+    .badge-red { background: var(--red-bg); color: var(--red); }
+    .badge-green { background: var(--green-bg); color: var(--green); }
+
+    /* ── TWO COL ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .empty-row {
+      padding: 24px 16px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--ink-4);
+    }
+
+    @media (max-width: 500px) {
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .two-col { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- AUTH -->
+  <div id="auth-screen">
+    <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password" />
+    <button id="authBtn">Enter</button>
+    <div id="auth-error">Incorrect password</div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard">
+    <div class="page-header">
+      <div class="page-title">PRICESCOUT · STATUS</div>
+      <div class="last-updated" id="lastUpdated"></div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total users</div>
+        <div class="stat-value" id="statUsers">—</div>
+        <div class="stat-sub" id="statUsersRecent"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total reports</div>
+        <div class="stat-value" id="statReports">—</div>
+        <div class="stat-sub" id="statReportsSub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">This week</div>
+        <div class="stat-value" id="statWeek">—</div>
+        <div class="stat-sub">price reports</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Cached products</div>
+        <div class="stat-value" id="statProducts">—</div>
+        <div class="stat-sub">in database</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+
+      <!-- TOP PRODUCTS -->
+      <div class="section">
+        <div class="section-title">Most scanned products</div>
+        <div class="data-table" id="topProducts">
+          <div class="empty-row">Loading...</div>
+        </div>
+      </div>
+
+      <!-- TOP CITIES -->
+      <div class="section">
+        <div class="section-title">Most active cities</div>
+        <div class="data-table" id="topCities">
+          <div class="empty-row">Loading...</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FLAGGED -->
+    <div class="section">
+      <div class="section-title">Flagged reports (2+ flags)</div>
+      <div class="data-table" id="flaggedReports">
+        <div class="empty-row">Loading...</div>
+      </div>
+    </div>
+
+    <!-- RECENT USERS -->
+    <div class="section">
+      <div class="section-title">Recent signups</div>
+      <div class="data-table" id="recentUsers">
+        <div class="empty-row">Loading...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let adminPassword = '';
+
+    function timeAgo(dateStr) {
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+      if (mins < 60) return `${mins}m ago`;
+      if (hours < 24) return `${hours}h ago`;
+      if (days === 1) return 'Yesterday';
+      if (days < 30) return `${days}d ago`;
+      return `${Math.floor(days / 30)}mo ago`;
+    }
+
+    async function loadDashboard() {
+      try {
+        const res = await fetch('/.netlify/functions/admin-stats', {
+          headers: { 'x-admin-password': adminPassword }
+        });
+
+        if (res.status === 401) {
+          document.getElementById('auth-error').style.display = 'block';
+          document.getElementById('auth-screen').style.display = 'flex';
+          document.getElementById('dashboard').style.display = 'none';
+          return;
+        }
+
+        const data = await res.json();
+
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        document.getElementById('lastUpdated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+
+        // Stats
+        document.getElementById('statUsers').textContent = data.users.total.toLocaleString();
+        document.getElementById('statUsersRecent').textContent = `${data.users.recent.length} recent`;
+        document.getElementById('statReports').textContent = data.reports.total.toLocaleString();
+        document.getElementById('statReportsSub').textContent = `${data.reports.month.toLocaleString()} this month`;
+        document.getElementById('statWeek').textContent = data.reports.week.toLocaleString();
+        document.getElementById('statProducts').textContent = data.products.cached.toLocaleString();
+
+        // Top products
+        const topProductsEl = document.getElementById('topProducts');
+        if (data.products.top.length === 0) {
+          topProductsEl.innerHTML = '<div class="empty-row">No data yet</div>';
+        } else {
+          topProductsEl.innerHTML = data.products.top.map(p => `
+            <div class="data-row">
+              <div class="data-main">
+                ${p.name}
+                <div class="data-sub">${p.barcode}</div>
+              </div>
+              <div class="data-count">${p.count}</div>
+            </div>`).join('');
+        }
+
+        // Top cities
+        const topCitiesEl = document.getElementById('topCities');
+        if (data.cities.length === 0) {
+          topCitiesEl.innerHTML = '<div class="empty-row">No data yet</div>';
+        } else {
+          topCitiesEl.innerHTML = data.cities.map(c => `
+            <div class="data-row">
+              <div class="data-main">${c.city}</div>
+              <div class="data-count">${c.count}</div>
+            </div>`).join('');
+        }
+
+        // Flagged reports
+        const flaggedEl = document.getElementById('flaggedReports');
+        if (data.flagged.length === 0) {
+          flaggedEl.innerHTML = '<div class="empty-row">No flagged reports</div>';
+        } else {
+          flaggedEl.innerHTML = data.flagged.map(r => `
+            <div class="data-row">
+              <div class="data-main">
+                ${r.product_name || 'Unknown product'}
+                <div class="data-sub">${r.store_name} · ${r.city || '—'} · $${parseFloat(r.price).toFixed(2)} · ${timeAgo(r.created_at)}</div>
+              </div>
+              <div class="data-badge ${r.flags >= 3 ? 'badge-red' : 'badge-amber'}">${r.flags} flag${r.flags !== 1 ? 's' : ''}</div>
+            </div>`).join('');
+        }
+
+        // Recent users
+        const recentUsersEl = document.getElementById('recentUsers');
+        if (data.users.recent.length === 0) {
+          recentUsersEl.innerHTML = '<div class="empty-row">No users yet</div>';
+        } else {
+          recentUsersEl.innerHTML = data.users.recent.map(u => `
+            <div class="data-row">
+              <div class="data-main">${u.email}</div>
+              <div class="data-count" style="font-weight:400;color:var(--ink-3)">${timeAgo(u.created_at)}</div>
+            </div>`).join('');
+        }
+
+      } catch (err) {
+        alert('Error loading data: ' + err.message);
+      }
+    }
+
+    document.getElementById('authBtn').addEventListener('click', () => {
+      adminPassword = document.getElementById('passwordInput').value;
+      if (!adminPassword) return;
+      loadDashboard();
+    });
+
+    document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('authBtn').click();
+    });
+  </script>
+
+</body>
+</html>
