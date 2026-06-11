@@ -283,7 +283,7 @@ async function scanLoop(video) {
 // ── CODE HANDLING ──────────────────────────────────────────
 
 async function handleCode(code) {
-  if (!code || !code.trim()) { showToast('Enter a barcode or model number'); return; }
+  if (!code || !code.trim()) { showToast('Enter a barcode'); return; }
   code = code.trim();
 
   // Reset product state on every new scan
