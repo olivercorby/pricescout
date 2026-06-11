@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#FAFAF8" />
+  <meta name="description" content="Canada's community price comparison app. Scan any barcode, see what your neighbours paid nearby, and help build the database together. Free, forever." />
+  <meta property="og:title" content="PriceScout — If they won't compare prices for us, we'll do it for each other." />
+  <meta property="og:description" content="Community-reported Canadian prices. Scan any barcode, see what people near you actually paid." />
+  <meta property="og:url" content="https://mypricescout.ca" />
+  <title>PriceScout — Canada's Community Price Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --border: rgba(0,0,0,0.07);
+      --border-mid: rgba(0,0,0,0.12);
+      --ink: #1A1A18;
+      --ink-2: #5C5C58;
+      --ink-3: #9C9C96;
+      --ink-4: #C4C4BE;
+    }
+
+    html { background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+
+    body { max-width: 600px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* ── NAV ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 0 0;
+    }
+
+    .nav-logo {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      color: var(--ink-4);
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+
+    .nav-cta {
+      height: 34px;
+      padding: 0 16px;
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      letter-spacing: -0.01em;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 64px 0 48px;
+      border-bottom: 0.5px solid var(--border);
+    }
+
+    .hero-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      color: var(--ink-4);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .hero-headline {
+      font-size: 36px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.045em;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+
+    .hero-headline em {
+      font-style: normal;
+      color: var(--ink-3);
+    }
+
+    .hero-sub {
+      font-size: 16px;
+      color: var(--ink-2);
+      line-height: 1.7;
+      margin-bottom: 36px;
+      max-width: 480px;
+    }
+
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 50px;
+      padding: 0 24px;
+      background: var(--ink);
+      color: #fff;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      letter-spacing: -0.01em;
+      transition: opacity 0.15s;
+    }
+
+    .hero-cta:active { opacity: 0.75; }
+
+    .hero-note {
+      font-size: 12px;
+      color: var(--ink-4);
+      margin-top: 14px;
+    }
+
+    /* ── STORY ── */
+    .story {
+      padding: 52px 0;
+      border-bottom: 0.5px solid var(--border);
+    }
+
+    .story-section {
+      margin-bottom: 40px;
+    }
+
+    .story-section:last-child { margin-bottom: 0; }
+
+    .story-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      color: var(--ink-4);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .story-text {
+      font-size: 17px;
+      color: var(--ink);
+      line-height: 1.75;
+      letter-spacing: -0.01em;
+    }
+
+    .story-text strong {
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    /* ── HOW IT WORKS ── */
+    .how {
+      padding: 52px 0;
+      border-bottom: 0.5px solid var(--border);
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      color: var(--ink-4);
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 18px 0;
+      border-bottom: 0.5px solid var(--border);
+    }
+
+    .step:last-child { border-bottom: none; }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      background: var(--surface);
+      border: 0.5px solid var(--border-mid);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-3);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--ink);
+      margin-bottom: 4px;
+      letter-spacing: -0.01em;
+    }
+
+    .step-body {
+      font-size: 13px;
+      color: var(--ink-3);
+      line-height: 1.6;
+    }
+
+    /* ── VALUES ── */
+    .values {
+      padding: 52px 0;
+      border-bottom: 0.5px solid var(--border);
+    }
+
+    .value-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .value-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .value-card-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink);
+      margin-bottom: 5px;
+      letter-spacing: -0.01em;
+    }
+
+    .value-card-body {
+      font-size: 12px;
+      color: var(--ink-3);
+      line-height: 1.6;
+    }
+
+    /* ── MANIFESTO ── */
+    .manifesto {
+      padding: 52px 0;
+      border-bottom: 0.5px solid var(--border);
+    }
+
+    .manifesto-quote {
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--ink);
+      line-height: 1.55;
+      letter-spacing: -0.025em;
+    }
+
+    .manifesto-attr {
+      font-size: 12px;
+      color: var(--ink-4);
+      margin-top: 16px;
+    }
+
+    /* ── CTA FOOTER ── */
+    .cta-footer {
+      padding: 52px 0 0;
+      text-align: center;
+    }
+
+    .cta-footer-title {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.035em;
+      margin-bottom: 10px;
+    }
+
+    .cta-footer-sub {
+      font-size: 14px;
+      color: var(--ink-3);
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+
+    .cta-footer-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 50px;
+      padding: 0 28px;
+      background: var(--ink);
+      color: #fff;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      letter-spacing: -0.01em;
+    }
+
+    .cta-footer-note {
+      font-size: 11px;
+      color: var(--ink-4);
+      margin-top: 12px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      margin-top: 64px;
+      padding-top: 24px;
+      border-top: 0.5px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-logo {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      color: var(--ink-4);
+      text-transform: uppercase;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+
+    .footer-links a {
+      font-size: 12px;
+      color: var(--ink-4);
+      text-decoration: none;
+    }
+
+    .footer-links a:hover { color: var(--ink-2); }
+
+    @media (max-width: 420px) {
+      .hero-headline { font-size: 30px; }
+      .value-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/" class="nav-logo">PriceScout</a>
+    <a href="/app" class="nav-cta">Get started</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-eyebrow">Canada's community price tracker</div>
+    <h1 class="hero-headline">If they won't compare<br>prices for us,<br><em>we'll do it for each other.</em></h1>
+    <p class="hero-sub">Scan any barcode. See what Canadians near you actually paid. Report what you paid. Build the database together.</p>
+    <a href="/app" class="hero-cta">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Start scanning — it's free
+    </a>
+    <div class="hero-note">No account required to browse · Free forever · No ads</div>
+  </section>
+
+  <!-- STORY -->
+  <section class="story">
+    <div class="story-section">
+      <div class="story-label">The problem</div>
+      <p class="story-text">Canadians are paying more than ever. Groceries, hardware, electronics — the prices keep climbing and <strong>nobody is making it easy to know if you're getting a fair deal.</strong> You walk into a store and take whatever number is on the shelf at face value because there's no real alternative.</p>
+    </div>
+
+    <div class="story-section">
+      <div class="story-label">What we expected</div>
+      <p class="story-text">We trusted that retailers would give us the tools to shop smarter. Price transparency, easy comparison, honest information. <strong>They didn't.</strong> Keeping prices hard to compare is good for business. It was never going to come from them.</p>
+    </div>
+
+    <div class="story-section">
+      <div class="story-label">What we built instead</div>
+      <p class="story-text">PriceScout is built by Canadians, for Canadians. No retailer partnerships. No corporate agenda. Just a simple tool that lets you scan a barcode and see what your neighbours actually paid — at real stores, in real cities, reported by real people. <strong>The data belongs to the community.</strong> Every price you report makes it more useful for everyone.</p>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="how">
+    <div class="section-title">How it works</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title">Scan any barcode</div>
+          <div class="step-body">Point your camera at any product — groceries, electronics, hardware, clothing. If it has a barcode, you can scan it.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title">See what others paid nearby</div>
+          <div class="step-body">Community-reported prices from real stores in your area. Sorted cheapest first. Updated by people who were just there.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title">Report what you paid</div>
+          <div class="step-body">Just scanned something? Tell us what it cost and where. Takes ten seconds. Helps every shopper who scans that product after you.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div>
+          <div class="step-title">Keep prices honest</div>
+          <div class="step-body">See a price that's outdated? Flag it and suggest the current one. Three community confirmations and it updates automatically.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VALUES -->
+  <section class="values">
+    <div class="section-title">What we stand for</div>
+    <div class="value-grid">
+      <div class="value-card">
+        <div class="value-card-title">No ads</div>
+        <div class="value-card-body">Never. Ads create incentives that conflict with honest results.</div>
+      </div>
+      <div class="value-card">
+        <div class="value-card-title">No retailer deals</div>
+        <div class="value-card-body">We have no financial relationship with any store. Nobody pays to rank higher.</div>
+      </div>
+      <div class="value-card">
+        <div class="value-card-title">Community owned</div>
+        <div class="value-card-body">The data is reported by the community and belongs to the community.</div>
+      </div>
+      <div class="value-card">
+        <div class="value-card-title">Free forever</div>
+        <div class="value-card-body">Kept running by donations from people who find it useful. That's it.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MANIFESTO -->
+  <section class="manifesto">
+    <p class="manifesto-quote">"Retailers had every opportunity to give Canadians honest price comparison tools. They chose not to. So we built it ourselves — because if they won't look out for us, we'll look out for each other."</p>
+    <div class="manifesto-attr">— PriceScout, built in Canada</div>
+  </section>
+
+  <!-- CTA FOOTER -->
+  <section class="cta-footer">
+    <div class="cta-footer-title">Ready to start comparing?</div>
+    <div class="cta-footer-sub">Join thousands of Canadians building the price database their retailers refused to.</div>
+    <a href="/app" class="cta-footer-btn">
+      Get started free
+    </a>
+    <div class="cta-footer-note">Sign up with your email. No password. No credit card.</div>
+  </section>
+
+  <footer>
+    <div class="footer-logo">PriceScout</div>
+    <div class="footer-links">
+      <a href="https://buymeacoffee.com/mypricescout" target="_blank" rel="noopener">Support us ☕</a>
+      <a href="/app">Sign in</a>
+    </div>
+  </footer>
+
+</body>
+</html>
